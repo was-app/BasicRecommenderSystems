@@ -2,9 +2,12 @@ import numpy as np
 import pandas as pd
 from scipy.spatial import distance
 from abc import ABC, abstractmethod
+pd.options.mode.chained_assignment = None #ommits an harmless warning
 
-#These classes receive a pandas dataframe, with userId, itemId and ratings, and try to predict
-#the ratings for not present user-item interactions
+"""
+These classes are made to receive a pandas dataframe, with userId, itemId and ratings,
+and try to predict the ratings for non present user-item interactions
+"""
 
 class RatingEstimator(ABC): #abstract class
     def __init__(self,ratings):
@@ -17,7 +20,6 @@ class RatingEstimator(ABC): #abstract class
     @abstractmethod
     def get_predicted(self):
         pass
-
 
 class MF(RatingEstimator):
     def __init__(self,ratings,factors=64,alpha=0.05,beta=0.01,iterations=100):
