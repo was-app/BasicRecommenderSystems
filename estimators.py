@@ -6,9 +6,10 @@ from abc import ABC, abstractmethod
 #These classes receive a pandas dataframe, with userId, itemId and ratings, and try to predict
 #the ratings for not present user-item interactions
 
-class RatingEstimator(ABC): #abstrac class
+class RatingEstimator(ABC): #abstract class
     def __init__(self,ratings):
         self.original_ratings = ratings
+        self.original_matrix = ratings.pivot(index='userId', columns='itemId', values='rating').to_numpy(na_value=0)
         self.num_users = ratings['userId'].nunique()
         self.num_items = ratings['itemId'].nunique()
     #returns a pandas dataframe with only the predicted ratings for each user-item interaction
@@ -21,8 +22,6 @@ class RatingEstimator(ABC): #abstrac class
 class MF(RatingEstimator):
     def __init__(self,ratings,factors=64,alpha=0.05,beta=0.01,iterations=100):
         super().__init__(ratings)
-        self.original_ratings = super().ratings
-        self.original_matrix = ratings.pivot(index='userId', columns='itemId', values='rating').to_numpy(na_value=0)
         self.num_users, self.num_items = self.original_matrix.shape
         self.factors = factors
         self.alpha = alpha
@@ -56,14 +55,13 @@ class MF(RatingEstimator):
         mf_ratings.columns.name='itemId'
         mf_ratings = pd.melt(mf_ratings.reset_index(),id_vars='userId',var_name='itemId',value_name='predicted_rating')
         #gets only the interactions not present in the original dataframe
-        predicted_ratings = mf_ratings.merge(self.ratings, on=['userId', 'itemId'], how='left', indicator=True)
+        predicted_ratings = mf_ratings.merge(self.original_ratings, on=['userId', 'itemId'], how='left', indicator=True)
         return predicted_ratings[self.predicted_ratings['_merge'] == 'right_only'].drop(columns='_merge')
 
 
 class UserKnn(RatingEstimator):
     def __init__(self,ratings,k=20):
         super().__init__(ratings)
-        self.original_matrix = self.ratings.pivot(index='userId', columns='itemId', values='rating').to_numpy(na_value=0)
         self.knn = self.get_knn()
         self.k = k
 
@@ -120,3 +118,52 @@ class UserKnn(RatingEstimator):
                 count+=1
         return sum
         
+class ContentBased(RatingEstimator):
+    def __init__(self,ratings,movie_info):
+        super().__init__(ratings)
+        self.movie_info = movie_info.drop(columns=['title','release','videoRelease','imdb','unknown'])
+        self.ratings_info = ratings.merge(self.movie_info,on='itemId')
+        self.user_profiles = self.set_profiles()
+
+    def set_profiles(self):
+        #gets a copy of the ratings info
+        df = self.ratings_info.drop(columns=['itemId','index','timestamp'])
+        df.sortby(by='userId',inplace=True)
+
+        #multiplies the ratings column by all the genre columns
+        for i in range (2,len(df.columns)):
+            df.iloc[:, i] *= df.iloc[:, 1].values
+
+        df.drop(columns='rating',inplace=True)
+        #takes not present genres out of the account
+        df.replace(0, np.nan, inplace=True)
+        #groups by user and gets the average rating for each genre
+        user_profiles = df.groupby(by='userId').mean()
+        user_profiles = self.profiles.fillna(0)
+        return user_profiles.values
+
+    def get_predicted(self):
+        dictionary=[]
+        for user in range(self.num_users):
+            df = self.movie_info.copy()
+            for movie in range(self.num_items):
+                #element-wise multiplication of 2 vectors, user_profile * item_genres
+                if self.original_matrix[user,movie]==0:
+                    df.iloc[movie,1:] *= self.user_profiles[id,:]
+                else:
+                    #this makes the entire line nan, to be removed later
+                    df.iloc[movie,0:] = np.nan
+
+            df.dropna(axis=0, how='all', inplace=True)
+            df.replace(0, np.nan, inplace=True)
+            #the preditced rating for that user-item interaction is the mean of the user_profile*item_genres
+            df['rating'] = df.iloc[:, 1:].mean(axis=1)
+            df = df[['itemId','rating']]
+
+            df.sort_values(by='rating',ascending=False,inplace=True)
+            df['userId'] = id + 1
+            dictionary.append(df)
+
+        predicted = pd.concat(dictionary, ignore_index=True)
+        #drops movies left with NA value in the calculation
+        return predicted.dropna(subset=['rating'],inplace=True)
