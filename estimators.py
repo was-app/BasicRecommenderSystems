@@ -62,7 +62,6 @@ class MF(RatingEstimator):
         mf_ratings['itemId'] = mf_ratings['itemId'] + 1
         #gets only the interactions not present in the original dataframe
         predicted_ratings = mf_ratings.merge(self.original_ratings, on=['userId', 'itemId'], how='left', indicator=True)
-        predicted_ratings.to_csv('predicted_ratings.csv')
         return predicted_ratings[predicted_ratings['_merge'] == 'left_only'].drop(columns='_merge')
 
 
