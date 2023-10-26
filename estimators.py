@@ -22,7 +22,7 @@ class RatingEstimator(ABC): #abstract class
         pass
 
 class MF(RatingEstimator):
-    def __init__(self,ratings,factors=64,alpha=0.05,beta=0.01,iterations=100):
+    def __init__(self,ratings,factors=64,alpha=0.05,beta=0.01,iterations=10):
         super().__init__(ratings)
         self.num_users, self.num_items = self.original_matrix.shape
         self.factors = factors
@@ -36,6 +36,8 @@ class MF(RatingEstimator):
         self.user_matrix = np.random.normal(scale=1./self.factors,size=(self.num_users,self.factors))
         self.item_matrix = np.random.normal(scale=1./self.factors,size=(self.factors,self.num_items))
         for k in range(self.iterations):
+            if k%10 == 0:
+                print("iteration:",k)
             self._sgd()
         return np.dot(self.user_matrix,self.item_matrix)
 
@@ -56,16 +58,19 @@ class MF(RatingEstimator):
         mf_ratings.index.name='userId'
         mf_ratings.columns.name='itemId'
         mf_ratings = pd.melt(mf_ratings.reset_index(),id_vars='userId',var_name='itemId',value_name='predicted_rating')
+        mf_ratings['userId'] = mf_ratings['userId'] + 1
+        mf_ratings['itemId'] = mf_ratings['itemId'] + 1
         #gets only the interactions not present in the original dataframe
         predicted_ratings = mf_ratings.merge(self.original_ratings, on=['userId', 'itemId'], how='left', indicator=True)
-        return predicted_ratings[self.predicted_ratings['_merge'] == 'right_only'].drop(columns='_merge')
+        predicted_ratings.to_csv('predicted_ratings.csv')
+        return predicted_ratings[predicted_ratings['_merge'] == 'left_only'].drop(columns='_merge')
 
 
 class UserKnn(RatingEstimator):
     def __init__(self,ratings,k=20):
         super().__init__(ratings)
-        self.knn = self.get_knn()
         self.k = k
+        self.knn = self.get_knn()
 
     def get_knn(self):
         #centers the ratings around 0, so to minimize the impact of 0's in the euclidian distance
@@ -86,7 +91,7 @@ class UserKnn(RatingEstimator):
         for i in range(self.num_users):
             #this gets the indexes for the k lowest values in a array
             knn[i,:] = np.argsort(distances[i,:])[:self.k]
-        return knn
+        return knn.astype(int)
     
     def get_predicted(self):
         dictionary=[]
@@ -112,7 +117,8 @@ class UserKnn(RatingEstimator):
     def get_rating(self,user,movie):
         sum=0
         count=0
-        for neighbor in self.knn[user]:
+        neighbors = self.knn[user]
+        for neighbor in neighbors:
             #it's quicker to access a value on a matrix then to search for it in a dataframe
             neighbor_rating = self.original_matrix[neighbor,movie]
             if neighbor_rating !=0:

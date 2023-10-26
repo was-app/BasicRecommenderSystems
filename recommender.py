@@ -47,7 +47,7 @@ class PredictionRec(Recommender):
             estimator = estimators.MF(self.ratings)
             return estimator.get_predicted()
         if(self.method=='knn'):
-            estimator = estimators.Knn(self.ratings)
+            estimator = estimators.UserKnn(self.ratings)
             return estimator.get_predicted()
         if(self.method=='cb'):
             estimator = estimators.ContentBased(self.ratings)
@@ -56,7 +56,7 @@ class PredictionRec(Recommender):
     #return an array of n recommended movie's ids for each user
     def recommend(self,userId):
         #gets the top n movies for the user
-        user_ratings = self.predicted[self.predicted['userId']==userId]
+        user_ratings = self.predicted_ratings[self.predicted_ratings['userId']==userId]
         user_ratings.sort_values(by='predicted_rating',ascending=False,inplace=True)
-        user_ratings = user_ratings.head(n=self.num_recommended)
+        user_ratings = user_ratings.head(n=self.num_recommendations)
         return user_ratings['itemId'].to_numpy()
