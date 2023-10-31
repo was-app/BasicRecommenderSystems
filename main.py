@@ -7,11 +7,11 @@ from pandas.api.extensions import no_default
 
 ratings = pd.read_csv("datasets/ml-100k/u.data",sep='\t',names=["userId", "itemId", "rating", "timestamp"])
 item_data = pd.read_csv("datasets/ml-100k/u.item",sep='|',encoding='latin-1',names=["itemId", "title", "release", "videoRelease","imdb","unknown","action","adventure","animation","childrens","comedy","crime","documentary","drama","fantasy","noir","horror","musical","mystery","romance","scifi","thriller","war","western"])
-method = 'knn'
+method = 'cb'
 num=10
 
 train, test = train_test_split(ratings)
-recommender = rm.PredictionRec(train,method,num=num)
+recommender = rm.PredictionRec(train,item_data,method,num=num)
 
 dictionary = []
 for user in range(ratings['userId'].nunique()):

@@ -126,10 +126,10 @@ class UserKnn(RatingEstimator):
         return sum
         
 class ContentBased(RatingEstimator):
-    def __init__(self,ratings,movie_info):
+    def __init__(self,ratings,item_data):
         super().__init__(ratings)
-        self.movie_info = movie_info.drop(columns=['title','release','videoRelease','imdb','unknown'])
-        self.ratings_info = ratings.merge(self.movie_info,on='itemId')
+        self.item_data = item_data.drop(columns=['title','release','videoRelease','imdb','unknown'])
+        self.ratings_info = ratings.merge(self.item_data,on='itemId')
         self.user_profiles = self.set_profiles()
 
     def set_profiles(self):
@@ -145,9 +145,9 @@ class ContentBased(RatingEstimator):
         #takes not present genres out of the account
         df.replace(0, np.nan, inplace=True)
         #groups by user and gets the average rating for each genre
-        user_profiles = df.groupby(by='userId').mean()
-        user_profiles = self.profiles.fillna(0)
-        return user_profiles.values
+        self.user_profiles = df.groupby(by='userId').mean()
+        self.user_profiles = self.user_profiles.fillna(0)
+        self.user_profiles = self.user_profiles.values
 
     def get_predicted(self):
         dictionary=[]

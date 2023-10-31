@@ -5,9 +5,10 @@ from scipy.spatial import distance
 from abc import ABC, abstractmethod
 
 class Recommender(ABC):
-    def __init__(self,ratings,num):
+    def __init__(self,ratings,item_data,num):
         self.ratings = ratings
         self.num_recommendations = num
+        self.item_data = item_data
 
     @abstractmethod
     def recommend(self):
@@ -37,8 +38,8 @@ class SimilarityRec(Recommender):
 
 #Recomends based on prediction of ratings for non present interactions
 class PredictionRec(Recommender):
-    def __init__(self,ratings,method,num=10):
-        super().__init__(ratings,num)
+    def __init__(self,ratings,item_data,method,num=10):
+        super().__init__(ratings,item_data,num)
         self.method = method
         self.predicted_ratings = self.predict_ratings()
 
@@ -50,7 +51,7 @@ class PredictionRec(Recommender):
             estimator = estimators.UserKnn(self.ratings)
             return estimator.get_predicted()
         if(self.method=='cb'):
-            estimator = estimators.ContentBased(self.ratings)
+            estimator = estimators.ContentBased(self.ratings,self.item_data)
             return estimator.get_predicted()
 
     #return an array of n recommended movie's ids for each user
